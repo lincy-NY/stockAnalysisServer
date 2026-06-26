@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Node
+node_modules/
+dist/
+*.log
+*.local
+.DS_Store
+
+# 数据文件
+*.csv
+*.xlsx
+*.db
+*.sqlite
+
+# 配置敏感信息
+config.py.bak
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 临时文件
+.cache/
+.pytest_cache/
