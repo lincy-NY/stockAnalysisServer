@@ -100,7 +100,7 @@ async function fetchTasks() {
   loading.value = true
   try {
     const { data } = await api.get('/tasks')
-    tasks.value = data.data
+    tasks.value = data
   } catch (e) {
     ElMessage.error('获取任务列表失败')
   }
@@ -128,7 +128,7 @@ async function runTask(taskId) {
 async function viewLogs(taskId) {
   try {
     const { data } = await api.get('/tasks/logs', { params: { task_id: taskId, limit: 30 } })
-    logs.value = data.data
+    logs.value = data
     logDialog.value = true
   } catch (e) {
     ElMessage.error('获取日志失败')
