@@ -17,6 +17,8 @@ const routes = [
       { path: 'screen', name: 'Screen', component: () => import('../views/Screen.vue') },
       { path: 'signals', name: 'SignalTrigger', component: () => import('../views/SignalTrigger.vue') },
       { path: 'tasks', name: 'Tasks', component: () => import('../views/Tasks.vue') },
+      { path: 'position', name: 'Position', component: () => import('../views/Position.vue') },
+      { path: 'trade', name: 'Trade', component: () => import('../views/Trade.vue') },
       { path: 'stock/:code', name: 'StockDetail', component: () => import('../views/StockDetail.vue') }
     ]
   }

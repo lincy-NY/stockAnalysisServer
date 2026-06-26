@@ -13,6 +13,14 @@
           <el-icon><Search /></el-icon>
           <span>选股结果</span>
         </el-menu-item>
+        <el-menu-item index="/position">
+          <el-icon><Wallet /></el-icon>
+          <span>持仓管理</span>
+        </el-menu-item>
+        <el-menu-item index="/trade">
+          <el-icon><DocumentCopy /></el-icon>
+          <span>交易记录</span>
+        </el-menu-item>
         <el-menu-item index="/signals">
           <el-icon><Bell /></el-icon>
           <span>信号触发</span>
