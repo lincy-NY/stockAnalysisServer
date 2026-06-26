@@ -30,3 +30,25 @@ api.interceptors.response.use(
 )
 
 export default api
+
+// ==================== 交易管理 ====================
+
+export const buyStock = (data) => api.post('/position/buy', data)
+
+export const getPositionList = (params) => api.get('/position/list', { params })
+
+export const getPositionDetail = (positionId) => api.get(`/position/${positionId}`)
+
+export const sellStock = (data) => api.post('/position/sell', data)
+
+export const getTradeList = (params) => api.get('/trade/list', { params })
+
+export const getUnreadCount = () => api.get('/alert/unread-count')
+
+export const getUnreadAlerts = () => api.get('/alert/unread')
+
+export const markAlertRead = (alertId) => api.put(`/alert/${alertId}/read`)
+
+export const markAllAlertsRead = () => api.put('/alert/read-all')
+
+export const getPositionStats = () => api.get('/position/stats')
