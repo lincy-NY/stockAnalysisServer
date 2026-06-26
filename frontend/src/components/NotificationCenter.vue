@@ -57,7 +57,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { Bell } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { getUnreadCount, getUnreadAlerts, markAlertRead, markAllAlertsRead } from '@/utils/api'
+import { getUnreadCount, getUnreadAlerts, markAlertRead, markAllAlertsRead } from '../utils/api'
 
 const emit = defineEmits(['viewPosition'])
 

@@ -75,7 +75,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { buyStock } from '@/utils/api'
+import { buyStock } from '../utils/api'
 
 const emit = defineEmits(['success'])
 

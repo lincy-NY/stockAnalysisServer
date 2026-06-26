@@ -88,10 +88,13 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="70">
+        <el-table-column label="操作" width="120">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click.stop="goToStock(row)">
               详情
+            </el-button>
+            <el-button type="success" link size="small" @click.stop="openBuyDialog(row)">
+              买入
             </el-button>
           </template>
         </el-table-column>
@@ -111,6 +114,9 @@
       <div class="total-info">
         共 {{ filteredData.length }} 条记录（总计 {{ tableData.length }} 条）
       </div>
+
+      <!-- 买入弹窗 -->
+      <BuyDialog ref="buyDialogRef" @success="loadData" />
     </el-card>
   </div>
 </template>
@@ -119,11 +125,11 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import api from '../utils/api'
-import axios from 'axios'
-import { useUserStore } from '../store/user'
+import BuyDialog from '../components/BuyDialog.vue'
 
 const router = useRouter()
 const route = useRoute()
+
 const loading = ref(false)
 const exportLoading = ref(false)
 const tableData = ref([])
@@ -135,6 +141,7 @@ const filters = reactive({
 })
 const currentPage = ref(1)
 const pageSize = ref(20)
+const buyDialogRef = ref(null)
 
 const filteredData = computed(() => {
   if (!filters.amountFilter) {
@@ -159,36 +166,34 @@ onMounted(async () => {
 async function loadData() {
   loading.value = true
   try {
-    const params = filters.date ? `?screen_date=${filters.date}` : ''
-    const res = await api.get(`/screen/${filters.strategy}/${filters.period}${params}`)
-    tableData.value = res.data || []
-    currentPage.value = 1
+    const params = { period: filters.period }
+    if (filters.date) {
+      params.screen_date = filters.date
+    }
+    
+    const url = `/screen/${filters.strategy}/${filters.period}`
+    const response = await api.get(url, { params })
+    tableData.value = response.data || []
+  } catch (error) {
+    console.error('加载数据失败:', error)
   } finally {
     loading.value = false
   }
 }
 
-async function onStrategyChange() {
-  filters.date = ''
+function onStrategyChange() {
   currentPage.value = 1
-  // B2仅支持日线
-  if (filters.strategy === 'b2') {
-    filters.period = 'daily'
-  }
-  await loadData()
+  filters.date = ''
+  loadData()
 }
 
 function onPeriodChange() {
   currentPage.value = 1
-  // 周线仅支持B1
-  if (filters.period === 'weekly' && filters.strategy !== 'b1') {
-    filters.strategy = 'b1'
-  }
   loadData()
 }
 
 function filterData() {
-  // 筛选已通过computed自动完成
+  currentPage.value = 1
 }
 
 function formatVol(vol) {
@@ -223,6 +228,15 @@ function goToStock(row) {
       date: filters.date || undefined,
       from: 'screen'
     }
+  })
+}
+
+function openBuyDialog(row) {
+  buyDialogRef.value?.open({
+    ts_code: row.ts_code,
+    stock_name: row.stock_name,
+    screen_date: row.screen_date,
+    close: row.close
   })
 }
 

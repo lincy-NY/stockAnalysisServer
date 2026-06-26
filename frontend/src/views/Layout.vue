@@ -32,6 +32,7 @@
             <span class="search-placeholder">搜索股票...</span>
             <span class="search-hint">按任意键搜索</span>
           </div>
+          <NotificationCenter />
           <el-dropdown @command="handleCommand">
             <span class="user-info">
               {{ userStore.username }}
@@ -58,6 +59,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../store/user'
 import GlobalSearch from '../components/GlobalSearch.vue'
+import NotificationCenter from '../components/NotificationCenter.vue'
 
 const searchRef = ref(null)
 
