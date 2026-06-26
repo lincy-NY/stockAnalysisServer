@@ -83,7 +83,7 @@
             <el-tag v-else type="warning" size="small">部分卖出</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150">
+        <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button v-if="row.status === 'holding'" type="primary" link size="small" @click="openSellDialog(row)">
               卖出

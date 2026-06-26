@@ -88,7 +88,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120">
+        <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click.stop="goToStock(row)">
               详情
