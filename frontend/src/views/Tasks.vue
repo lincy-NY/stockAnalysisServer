@@ -99,7 +99,7 @@ const resultOutput = ref('')
 async function fetchTasks() {
   loading.value = true
   try {
-    const { data } = await api.get('/api/tasks')
+    const { data } = await api.get('/tasks')
     tasks.value = data.data
   } catch (e) {
     ElMessage.error('获取任务列表失败')
@@ -110,7 +110,7 @@ async function fetchTasks() {
 async function runTask(taskId) {
   runningId.value = taskId
   try {
-    const { data } = await api.post(`/api/tasks/${taskId}/run`)
+    const { data } = await api.post(`/tasks/${taskId}/run`)
     resultOutput.value = data.output || '执行完成'
     resultDialog.value = true
     if (data.success) {
@@ -127,7 +127,7 @@ async function runTask(taskId) {
 
 async function viewLogs(taskId) {
   try {
-    const { data } = await api.get('/api/tasks/logs', { params: { task_id: taskId, limit: 30 } })
+    const { data } = await api.get('/tasks/logs', { params: { task_id: taskId, limit: 30 } })
     logs.value = data.data
     logDialog.value = true
   } catch (e) {
@@ -138,7 +138,7 @@ async function viewLogs(taskId) {
 async function clearLogs() {
   try {
     await ElMessageBox.confirm('确定清空所有执行日志？', '确认')
-    await api.delete('/api/tasks/logs')
+    await api.delete('/tasks/logs')
     logs.value = []
     ElMessage.success('已清空')
   } catch {}
