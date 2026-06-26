@@ -68,6 +68,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../store/user'
 import GlobalSearch from '../components/GlobalSearch.vue'
 import NotificationCenter from '../components/NotificationCenter.vue'
+import { Wallet, DocumentCopy } from '@element-plus/icons-vue'
 
 const searchRef = ref(null)
 
