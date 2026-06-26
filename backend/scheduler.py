@@ -15,6 +15,18 @@ STOCK_DATA_DIR = '/root/.openclaw/workspace/stock_data'
 PYTHON = sys.executable
 
 TASKS = {
+    'b0_daily': {
+        'name': 'B0日线选股',
+        'schedule': '周一至五 17:00',
+        'cron': {'day_of_week': 'mon-fri', 'hour': 17, 'minute': 0},
+        'scripts': [
+            ('update_stock_daily_mysql.py', '更新日线数据'),
+            ('update_daily_basic_mysql.py', '更新估值指标'),
+            ('update_brick_monthly.py', '更新砖型图'),
+            ('run_b0_screen_mysql.py', 'B0日线筛选'),
+            ('track_b0_daily.py', '日线追踪更新'),
+        ],
+    },
     'b1_daily': {
         'name': 'B1日线选股',
         'schedule': '周一至五 17:00',
@@ -22,9 +34,44 @@ TASKS = {
         'scripts': [
             ('update_stock_daily_mysql.py', '更新日线数据'),
             ('update_daily_basic_mysql.py', '更新估值指标'),
-            ('update_brick_last_5days.py', '更新砖型图'),
+            ('update_brick_monthly.py', '更新砖型图'),
             ('run_b1_screen_mysql.py', 'B1日线筛选'),
             ('track_b1_daily.py', '日线追踪更新'),
+        ],
+    },
+    'b2_daily': {
+        'name': 'B2日线选股',
+        'schedule': '周一至五 17:00',
+        'cron': {'day_of_week': 'mon-fri', 'hour': 17, 'minute': 0},
+        'scripts': [
+            ('update_stock_daily_mysql.py', '更新日线数据'),
+            ('update_daily_basic_mysql.py', '更新估值指标'),
+            ('update_brick_monthly.py', '更新砖型图'),
+            ('run_b2_screen_mysql.py', 'B2日线筛选'),
+            ('track_b2_daily.py', '日线追踪更新'),
+        ],
+    },
+    'b3_daily': {
+        'name': 'B3日线选股',
+        'schedule': '周一至五 17:00',
+        'cron': {'day_of_week': 'mon-fri', 'hour': 17, 'minute': 0},
+        'scripts': [
+            ('update_stock_daily_mysql.py', '更新日线数据'),
+            ('update_daily_basic_mysql.py', '更新估值指标'),
+            ('update_brick_monthly.py', '更新砖型图'),
+            ('run_b3_screen_mysql.py', 'B3日线筛选'),
+            ('track_b3_daily.py', '日线追踪更新'),
+        ],
+    },
+    'b0_weekly': {
+        'name': 'B0周线选股',
+        'schedule': '周六 08:00',
+        'cron': {'day_of_week': 'sat', 'hour': 8, 'minute': 0},
+        'scripts': [
+            ('update_stock_weekly_mysql.py', '更新周线数据'),
+            ('update_daily_basic_mysql.py', '更新估值指标'),
+            ('run_b0_screen_weekly_mysql.py', 'B0周线筛选'),
+            ('track_b0_weekly.py', '周线追踪更新'),
         ],
     },
     'b1_weekly': {
