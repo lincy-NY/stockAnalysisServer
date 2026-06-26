@@ -31,7 +31,7 @@ def get_existing_signals(conn, relate_id):
     """获取已触发的信号日期"""
     cursor = conn.cursor(pymysql.cursors.DictCursor)
     cursor.execute("""
-        SELECT s1, s2, s3, sm1 FROM stock_b1_daily_track
+        SELECT s1, s2, s3, sm1 FROM stock_track_daily
         WHERE relate_id = %s
         ORDER BY track_date DESC
         LIMIT 1
@@ -100,13 +100,12 @@ def main():
         # 插入追踪记录
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO stock_b1_daily_track
-            (relate_id, track_date, close, low, short_line, big_line, target_price, s1, s2, s3, sm1)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO stock_track_daily
+            (relate_id, track_date, close, low, short_line, big_line, s1, s2, s3, sm1)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (relate_id, track_date, close,
               float(latest['low']) if latest['low'] else 0,
-              short_line, big_line, 0,
-              None, s2, s3, sm1))
+              short_line, big_line, None, s2, s3, sm1))
         conn.commit()
         tracked += 1
 
