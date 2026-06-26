@@ -23,6 +23,11 @@
         </el-form-item>
       </el-form>
 
+      <!-- 操作按钮 -->
+      <el-button type="primary" @click="openAddDialog" style="margin-bottom: 16px">
+        新增持仓
+      </el-button>
+
       <!-- 统计信息 -->
       <el-row :gutter="16" class="stats-row">
         <el-col :span="6">
@@ -142,6 +147,9 @@
         <el-button type="primary" @click="handleSell" :loading="sellLoading">确认卖出</el-button>
       </template>
     </el-dialog>
+
+    <!-- 新增持仓弹窗 -->
+    <AddPositionDialog ref="addDialogRef" @success="loadData" />
   </div>
 </template>
 
@@ -149,7 +157,8 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getPositionList, sellStock } from '../utils/api'
+import { getPositionList, sellStock, getPositionStats } from '../utils/api'
+import AddPositionDialog from '../components/AddPositionDialog.vue'
 
 const router = useRouter()
 
@@ -171,6 +180,7 @@ const filters = reactive({
 const sellDialogVisible = ref(false)
 const sellLoading = ref(false)
 const sellFormRef = ref(null)
+const addDialogRef = ref(null)
 
 const sellForm = reactive({
   position_id: null,
@@ -220,6 +230,10 @@ async function loadStats() {
   } catch (error) {
     console.error('加载统计失败:', error)
   }
+}
+
+function openAddDialog() {
+  addDialogRef.value?.open()
 }
 
 function openSellDialog(row) {

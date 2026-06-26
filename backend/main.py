@@ -16,7 +16,10 @@ from database import (
     get_dashboard_stats, get_screen_results, get_screen_dates,
     get_tracking_list, get_track_history, get_stock_kline,
     get_stock_info, get_signal_stats, query_all, query_one,
-    get_signal_triggers, get_recent_signal_stats, get_stock_screen_history
+    get_signal_triggers, get_recent_signal_stats, get_stock_screen_history,
+    create_position, create_position_direct, get_position_list, get_position_detail,
+    sell_position, get_unread_alert_count, get_unread_alerts, mark_alert_read,
+    mark_all_alerts_read, get_position_stats
 )
 from scheduler import init_scheduler, scheduler, TASKS, execute_task
 
@@ -490,6 +493,189 @@ def task_logs_clear(task_id: str = None, username: str = Depends(get_current_use
     conn.commit()
     conn.close()
     return {'success': True}
+
+
+# ============ 交易管理接口 ============
+
+class BuyRequest(BaseModel):
+    ts_code: str
+    screen_date: date
+    buy_date: date
+    buy_price: float
+    buy_amount: int
+
+
+class SellRequest(BaseModel):
+    position_id: int
+    sell_date: date
+    sell_price: float
+    sell_amount: int
+
+
+class AddPositionRequest(BaseModel):
+    ts_code: str
+    stock_name: str
+    buy_date: date
+    buy_price: float
+    buy_amount: int
+    notes: str = ''
+
+
+@app.post('/api/position/buy')
+def buy_stock(req: BuyRequest, username: str = Depends(get_current_user)):
+    """买入股票（创建持仓）"""
+    # 获取股票信息
+    stock_info = query_one("SELECT name FROM stock_info WHERE ts_code = %s", (req.ts_code,))
+    if not stock_info:
+        raise HTTPException(status_code=404, detail='股票不存在')
+    
+    stock_name = stock_info['name']
+    
+    # 验证参数
+    if req.buy_amount <= 0:
+        raise HTTPException(status_code=400, detail='购买数量必须大于0')
+    if req.buy_amount % 100 != 0:
+        raise HTTPException(status_code=400, detail='购买数量必须是100的倍数')
+    if req.buy_price <= 0:
+        raise HTTPException(status_code=400, detail='购买价格必须大于0')
+    
+    # 确定策略（从选股结果中获取）
+    select_result = query_one("""
+        SELECT strategy FROM stock_select_daily
+        WHERE ts_code = %s AND screen_date = %s
+    """, (req.ts_code, req.screen_date))
+    
+    strategy = select_result['strategy'] if select_result else None
+    
+    # 创建持仓
+    position_id = create_position(
+        ts_code=req.ts_code,
+        stock_name=stock_name,
+        strategy=strategy,
+        screen_date=req.screen_date,
+        buy_date=req.buy_date,
+        buy_price=req.buy_price,
+        buy_amount=req.buy_amount
+    )
+    
+    return {'position_id': position_id, 'message': '买入成功'}
+
+
+@app.post('/api/position/add')
+def add_position(req: AddPositionRequest, username: str = Depends(get_current_user)):
+    """直接添加持仓（不关联选股结果）"""
+    # 验证股票代码格式
+    import re
+    if not re.match(r'^\d{6}\.(SH|SZ)$', req.ts_code):
+        raise HTTPException(status_code=400, detail='股票代码格式错误，应为000001.SZ')
+    
+    # 验证参数
+    if req.buy_amount <= 0:
+        raise HTTPException(status_code=400, detail='购买数量必须大于0')
+    if req.buy_amount % 100 != 0:
+        raise HTTPException(status_code=400, detail='购买数量必须是100的倍数')
+    if req.buy_price <= 0:
+        raise HTTPException(status_code=400, detail='购买价格必须大于0')
+    
+    # 创建持仓
+    position_id = create_position_direct(
+        ts_code=req.ts_code,
+        stock_name=req.stock_name,
+        buy_date=req.buy_date,
+        buy_price=req.buy_price,
+        buy_amount=req.buy_amount,
+        notes=req.notes
+    )
+    
+    return {'position_id': position_id, 'message': '添加成功'}
+
+
+@app.get('/api/position/list')
+def get_positions(status: str = None, strategy: str = None, username: str = Depends(get_current_user)):
+    """获取持仓列表"""
+    positions = get_position_list(status=status, strategy=strategy)
+    return {'total': len(positions), 'items': positions}
+
+
+@app.get('/api/position/{position_id}')
+def get_position(position_id: int, username: str = Depends(get_current_user)):
+    """获取持仓详情"""
+    result = get_position_detail(position_id)
+    if not result:
+        raise HTTPException(status_code=404, detail='持仓不存在')
+    return result
+
+
+@app.post('/api/position/sell')
+def sell_stock(req: SellRequest, username: str = Depends(get_current_user)):
+    """卖出持仓"""
+    try:
+        profit_loss = sell_position(
+            position_id=req.position_id,
+            sell_date=req.sell_date,
+            sell_price=req.sell_price,
+            sell_amount=req.sell_amount
+        )
+        return {'message': '卖出成功', 'profit_loss': profit_loss}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get('/api/trade/list')
+def get_trades(ts_code: str = None, page: int = 1, page_size: int = 20, username: str = Depends(get_current_user)):
+    """获取交易记录"""
+    offset = (page - 1) * page_size
+    sql = """
+        SELECT * FROM stock_trade WHERE 1=1
+    """
+    params = []
+    
+    if ts_code:
+        sql += " AND ts_code = %s"
+        params.append(ts_code)
+    
+    sql += " ORDER BY trade_date DESC LIMIT %s OFFSET %s"
+    params.extend([page_size, offset])
+    
+    trades = query_all(sql, tuple(params))
+    total = query_one("SELECT COUNT(*) as count FROM stock_trade" + (" WHERE ts_code=%s" if ts_code else ""), (ts_code,) if ts_code else ())['count']
+    
+    return {'total': total, 'items': trades, 'page': page, 'page_size': page_size}
+
+
+@app.get('/api/alert/unread-count')
+def unread_count(username: str = Depends(get_current_user)):
+    """获取未读消息数量"""
+    count = get_unread_alert_count()
+    return {'count': count}
+
+
+@app.get('/api/alert/unread')
+def unread_alerts(username: str = Depends(get_current_user)):
+    """获取未读消息列表"""
+    alerts = get_unread_alerts()
+    return {'total': len(alerts), 'items': alerts}
+
+
+@app.put('/api/alert/{alert_id}/read')
+def mark_read(alert_id: int, username: str = Depends(get_current_user)):
+    """标记消息为已读"""
+    mark_alert_read(alert_id)
+    return {'message': '已标记为已读'}
+
+
+@app.put('/api/alert/read-all')
+def mark_all_read(username: str = Depends(get_current_user)):
+    """全部标记为已读"""
+    count = mark_all_alerts_read()
+    return {'message': '已全部标记为已读', 'count': count}
+
+
+@app.get('/api/position/stats')
+def position_stats(username: str = Depends(get_current_user)):
+    """获取持仓统计"""
+    stats = get_position_stats()
+    return stats
 
 
 # ============ 健康检查 ============

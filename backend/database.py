@@ -337,3 +337,253 @@ def get_stock_screen_history(ts_code):
     weekly_results = list(query_all(weekly_sql, (ts_code,)))
     
     return daily_results + weekly_results
+
+
+# ============ 交易管理 ============
+
+def create_position(ts_code, stock_name, strategy, screen_date, buy_date, buy_price, buy_amount):
+    """创建持仓（买入）"""
+    buy_total = round(buy_price * buy_amount, 2)
+    
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        # 插入持仓记录
+        cursor.execute("""
+            INSERT INTO stock_position
+            (ts_code, stock_name, strategy, screen_date, buy_date, buy_price, buy_amount, buy_total, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'holding')
+        """, (ts_code, stock_name, strategy, screen_date, buy_date, buy_price, buy_amount, buy_total))
+        position_id = cursor.lastrowid
+        
+        # 插入交易记录
+        cursor.execute("""
+            INSERT INTO stock_trade
+            (position_id, ts_code, stock_name, trade_type, trade_date, trade_price, trade_amount, trade_total)
+            VALUES (%s, %s, %s, 'buy', %s, %s, %s, %s)
+        """, (position_id, ts_code, stock_name, buy_date, buy_price, buy_amount, buy_total))
+        
+        conn.commit()
+        return position_id
+
+
+def create_position_direct(ts_code, stock_name, buy_date, buy_price, buy_amount, notes=''):
+    """直接创建持仓（不关联选股结果）"""
+    buy_total = round(buy_price * buy_amount, 2)
+    
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        # 获取股票名称（如果没有提供）
+        if not stock_name:
+            stock = query_one("SELECT name FROM stock_info WHERE ts_code = %s", (ts_code,))
+            if stock:
+                stock_name = stock['name']
+        
+        # 插入持仓记录
+        cursor.execute("""
+            INSERT INTO stock_position
+            (ts_code, stock_name, strategy, buy_date, buy_price, buy_amount, buy_total, status)
+            VALUES (%s, %s, NULL, %s, %s, %s, %s, 'holding')
+        """, (ts_code, stock_name, buy_date, buy_price, buy_amount, buy_total))
+        position_id = cursor.lastrowid
+        
+        # 插入交易记录
+        cursor.execute("""
+            INSERT INTO stock_trade
+            (position_id, ts_code, stock_name, trade_type, trade_date, trade_price, trade_amount, trade_total, notes)
+            VALUES (%s, %s, %s, 'buy', %s, %s, %s, %s, %s)
+        """, (position_id, ts_code, stock_name, buy_date, buy_price, buy_amount, buy_total, notes))
+        
+        conn.commit()
+        return position_id
+
+
+def get_position_list(status=None, strategy=None):
+    """获取持仓列表"""
+    sql = """
+        SELECT id, ts_code, stock_name, strategy, screen_date, buy_date,
+               buy_price, buy_amount, buy_total, current_price, current_value,
+               profit_loss, profit_loss_pct, status, is_alert, created_at, updated_at
+        FROM stock_position
+        WHERE 1=1
+    """
+    params = []
+    
+    if status:
+        sql += " AND status = %s"
+        params.append(status)
+    if strategy:
+        sql += " AND strategy = %s"
+        params.append(strategy)
+    
+    sql += " ORDER BY updated_at DESC"
+    
+    positions = query_all(sql, tuple(params))
+    
+    # 更新当前价格和盈亏
+    for pos in positions:
+        latest = query_one("""
+            SELECT close FROM stock_daily
+            WHERE ts_code = %s ORDER BY trade_date DESC LIMIT 1
+        """, (pos['ts_code'],))
+        
+        if latest:
+            current_price = float(latest['close'])
+            current_value = round(current_price * pos['buy_amount'], 2)
+            profit_loss = round(current_value - pos['buy_total'], 2)
+            profit_loss_pct = round((profit_loss / pos['buy_total']) * 100, 2) if pos['buy_total'] > 0 else 0
+            
+            # 更新数据库
+            with get_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE stock_position
+                    SET current_price = %s, current_value = %s, profit_loss = %s, profit_loss_pct = %s
+                    WHERE id = %s
+                """, (current_price, current_value, profit_loss, profit_loss_pct, pos['id']))
+                conn.commit()
+            
+            pos['current_price'] = current_price
+            pos['current_value'] = current_value
+            pos['profit_loss'] = profit_loss
+            pos['profit_loss_pct'] = profit_loss_pct
+    
+    return positions
+
+
+def get_position_detail(position_id):
+    """获取持仓详情"""
+    position = query_one("""
+        SELECT * FROM stock_position WHERE id = %s
+    """, (position_id,))
+    
+    if not position:
+        return None
+    
+    # 获取交易记录
+    trades = query_all("""
+        SELECT * FROM stock_trade WHERE position_id = %s ORDER BY trade_date DESC
+    """, (position_id,))
+    
+    # 获取提示记录
+    alerts = query_all("""
+        SELECT * FROM stock_alert WHERE position_id = %s ORDER BY created_at DESC
+    """, (position_id,))
+    
+    return {
+        'position': position,
+        'trades': trades,
+        'alerts': alerts
+    }
+
+
+def sell_position(position_id, sell_date, sell_price, sell_amount):
+    """卖出持仓"""
+    position = query_one("""
+        SELECT * FROM stock_position WHERE id = %s
+    """, (position_id,))
+    
+    if not position:
+        raise ValueError('持仓不存在')
+    
+    if position['status'] != 'holding':
+        raise ValueError('持仓状态不正确')
+    
+    if sell_amount > position['buy_amount']:
+        raise ValueError('卖出数量超过持仓数量')
+    
+    sell_total = round(sell_price * sell_amount, 2)
+    profit_loss = round(sell_total - (position['buy_price'] * sell_amount), 2)
+    
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        # 插入交易记录
+        trade_type = 'sell' if sell_amount == position['buy_amount'] else 'sell_partial'
+        cursor.execute("""
+            INSERT INTO stock_trade
+            (position_id, ts_code, stock_name, trade_type, trade_date, trade_price, trade_amount, trade_total, profit_loss)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (position_id, position['ts_code'], position['stock_name'], trade_type, sell_date, sell_price, sell_amount, sell_total, profit_loss))
+        
+        # 更新持仓状态
+        new_status = 'sold' if sell_amount == position['buy_amount'] else 'partial_sold'
+        cursor.execute("""
+            UPDATE stock_position SET status = %s WHERE id = %s
+        """, (new_status, position_id))
+        
+        conn.commit()
+    
+    return profit_loss
+
+
+def get_unread_alert_count():
+    """获取未读消息数量"""
+    result = query_one("""
+        SELECT COUNT(*) as count FROM stock_alert WHERE status = 'unread'
+    """)
+    return result['count']
+
+
+def get_unread_alerts():
+    """获取未读消息列表"""
+    sql = """
+        SELECT id, position_id, ts_code, stock_name, alert_type,
+               alert_date, alert_price, trigger_desc, status, created_at
+        FROM stock_alert
+        WHERE status = 'unread'
+        ORDER BY created_at DESC
+        LIMIT 50
+    """
+    return query_all(sql)
+
+
+def mark_alert_read(alert_id):
+    """标记消息为已读"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE stock_alert SET status = 'read', read_at = NOW() WHERE id = %s
+        """, (alert_id,))
+        conn.commit()
+
+
+def mark_all_alerts_read():
+    """全部标记为已读"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE stock_alert SET status = 'read', read_at = NOW() WHERE status = 'unread'
+        """)
+        affected = cursor.rowcount
+        conn.commit()
+        return affected
+
+
+def get_position_stats():
+    """获取持仓统计"""
+    positions = get_position_list(status='holding')
+    
+    if not positions:
+        return {
+            'holding_count': 0,
+            'total_value': 0,
+            'total_profit_loss': 0,
+            'profit_loss_pct': 0,
+            'unread_alerts': 0
+        }
+    
+    total_value = sum(p['current_value'] for p in positions)
+    total_profit_loss = sum(p['profit_loss'] for p in positions)
+    total_cost = sum(p['buy_total'] for p in positions)
+    profit_loss_pct = round((total_profit_loss / total_cost) * 100, 2) if total_cost > 0 else 0
+    unread_alerts = get_unread_alert_count()
+    
+    return {
+        'holding_count': len(positions),
+        'total_value': round(total_value, 2),
+        'total_profit_loss': round(total_profit_loss, 2),
+        'profit_loss_pct': profit_loss_pct,
+        'unread_alerts': unread_alerts
+    }

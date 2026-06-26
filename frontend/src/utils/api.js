@@ -35,6 +35,10 @@ export default api
 
 export const buyStock = (data) => api.post('/position/buy', data)
 
+export const addPosition = (data) => api.post('/position/add', data)
+
+export const createPositionDirect = (data) => api.post('/position/add', data)
+
 export const getPositionList = (params) => api.get('/position/list', { params })
 
 export const getPositionDetail = (positionId) => api.get(`/position/${positionId}`)
