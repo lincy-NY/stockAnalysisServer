@@ -42,6 +42,14 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# 步骤1c: 更新砖型图指标
+echo ""
+echo "【步骤1c】更新砖型图指标(MySQL)..."
+python3 update_brick_monthly.py 2>&1
+if [ $? -ne 0 ]; then
+    echo "⚠️ 砖型图更新失败（继续执行后续任务）"
+fi
+
 # 步骤2: 执行周线B1筛选
 echo ""
 echo "【步骤2】执行周线B1筛选(MySQL)..."
